@@ -1,6 +1,6 @@
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask import Flask, request, jsonify
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required
+
 from flask_mysqldb import MySQL
 
 app = Flask(__name__)
@@ -24,7 +24,7 @@ def register():
     username = data.get('username')
     email = data.get('email')
     password = data.get('password')
-
+    user_type = data.get('user_type')
     cursor = mysql.connection.cursor()
 
     # Check if the username or email already exists in the database
@@ -35,7 +35,7 @@ def register():
         return jsonify({"message": "Username or email already exists"}), 400
 
     # Create a new user and store it in the database
-    cursor.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", (username, email, password))
+    cursor.execute("INSERT INTO users (username, email, password,user_type) VALUES (%s, %s, %s,%s)", (username, email, password,user_type))
     mysql.connection.commit()
     cursor.close()
 
@@ -49,20 +49,19 @@ def login():
     data = request.json
     email = data.get('email')
     password = data.get('password')
-
+ 
     cursor = mysql.connection.cursor()
 
     # Check the user's credentials in the database
     cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (email, password))
     user = cursor.fetchone()
-
     cursor.close()
 
     if not user:
         return jsonify({"message": "Invalid credentials"}), 401
 
     # Generate a JWT token for the user
-    access_token = create_access_token(identity=email)
+    access_token = create_access_token(identity=user[0])
     return jsonify({"message": "Login successful", "access_token": access_token}), 200
 
 # Create a New Blog Post API
@@ -72,13 +71,13 @@ def create_blog_post():
     data = request.json
     title = data.get('title')
     content = data.get('content')
-    author = get_jwt_identity()
+    user_id = get_jwt_identity()
 
     if not title or not content:
         return jsonify({"message": "Title and content are required"}), 400
 
     cursor = mysql.connection.cursor()
-    cursor.execute("INSERT INTO posts (title, content, author) VALUES (%s, %s, %s)", (title, content, author))
+    cursor.execute("INSERT INTO posts (title, content, user_id) VALUES (%s, %s, %s)", (title, content, user_id))
     mysql.connection.commit()
     cursor.close()
 
@@ -90,13 +89,13 @@ def create_blog_post():
 def post_comment(post_id):
     data = request.json
     comment_text = data.get('comment_text')
-    author = get_jwt_identity()
+    user_id = get_jwt_identity()
 
     if not comment_text:
         return jsonify({"message": "Comment text is required"}), 400
 
     cursor = mysql.connection.cursor()
-    cursor.execute("INSERT INTO comments (post_id, author, comment_text) VALUES (%s, %s, %s)", (post_id, author, comment_text))
+    cursor.execute("INSERT INTO comments (post_id, user_id, comment_text) VALUES (%s, %s, %s)", (post_id, user_id, comment_text))
     mysql.connection.commit()
     cursor.close()
 
